@@ -87,7 +87,8 @@ cvar_t scr_sbaralpha = {"scr_sbaralpha", "0.75", CVAR_ARCHIVE};
 cvar_t scr_conwidth = {"scr_conwidth", "0", CVAR_ARCHIVE};
 cvar_t scr_conscale = {"scr_conscale", "1", CVAR_ARCHIVE};
 cvar_t scr_crosshairscale = {"scr_crosshairscale", "1", CVAR_ARCHIVE};
-cvar_t scr_showfps = {"scr_showfps", "0", CVAR_ARCHIVE};
+cvar_t scr_showfps = {"scr_showfps", "0", CVAR_NONE};
+cvar_t scr_showspeed = {"scr_showspeed", "0", CVAR_NONE};
 cvar_t scr_clock = {"scr_clock", "0", CVAR_NONE};
 cvar_t scr_autoclock = {"scr_autoclock", "1", CVAR_ARCHIVE};
 cvar_t scr_usekfont = {"scr_usekfont", "0", CVAR_NONE}; // 2021 re-release
@@ -549,6 +550,7 @@ void SCR_Init (void)
 	Cvar_RegisterVariable (&scr_conscale);
 	Cvar_RegisterVariable (&scr_crosshairscale);
 	Cvar_RegisterVariable (&scr_showfps);
+	Cvar_RegisterVariable (&scr_showspeed);
 	Cvar_RegisterVariable (&scr_clock);
 	Cvar_RegisterVariable (&scr_autoclock);
 	// johnfitz
@@ -706,6 +708,52 @@ void SCR_DrawClock (cb_context_t *cbx)
 		if (cls.demospeed == 0)
 			q_snprintf (str, sizeof (str), "[paused]");
 		Draw_String (cbx, 320 - (strlen (str) << 3), y, str);
+	}
+}
+
+/*
+==============
+SCR_DrawSpeed
+==============
+*/
+void SCR_DrawSpeed (cb_context_t *cbx)
+{
+	const float	  show_speed_interval_value = 0.05f;
+	static float  maxspeed = 0, display_speed = -1;
+	static double lastrealtime = 0;
+	float		  speed;
+	vec3_t		  vel;
+
+	if (lastrealtime > realtime)
+	{
+		lastrealtime = 0;
+		display_speed = -1;
+		maxspeed = 0;
+	}
+
+	VectorCopy (cl.velocity, vel);
+	vel[2] = 0;
+	speed = VectorLength (vel);
+
+	if (speed > maxspeed)
+		maxspeed = speed;
+
+	if (scr_showspeed.value)
+	{
+		if (display_speed >= 0)
+		{
+			char str[12];
+			sprintf (str, "%d", (int)display_speed);
+			GL_SetCanvas (cbx, CANVAS_CROSSHAIR);
+			Draw_String (cbx, -(int)strlen (str) * 4, 4, str);
+		}
+	}
+
+	if (realtime - lastrealtime >= show_speed_interval_value)
+	{
+		lastrealtime = realtime;
+		display_speed = maxspeed;
+		maxspeed = 0;
 	}
 }
 
@@ -1159,6 +1207,7 @@ static void SCR_DrawGUI (void *unused)
 		SCR_DrawDevStats (cbx); // johnfitz
 		SCR_DrawFPS (cbx);		// johnfitz
 		SCR_DrawClock (cbx);	// johnfitz
+		SCR_DrawSpeed (cbx);
 		SCR_DrawConsole (cbx);
 		M_Draw (cbx);
 	}
